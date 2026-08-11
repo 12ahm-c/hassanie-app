@@ -1,0 +1,85 @@
+import { prisma } from "@/lib/db/prisma";
+import { QaService } from "@/lib/services/qa.service";
+import {
+  qaCreateSingleSchema,
+  qaFindAllSchema,
+  qaDeleteManySchema,
+} from "@/lib/validators/qa.validator";
+import {
+  createdResponse,
+  paginatedResponse,
+  noContentResponse,
+  handleApiError,
+} from "@/lib/api-response";
+import { ValidationError, NotFoundError } from "@/lib/errors/AppError";
+import { NextRequest } from "next/server";
+
+const qaService = new QaService(prisma);
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const params = Object.fromEntries(searchParams.entries());
+    const parsed = qaFindAllSchema.safeParse(params);
+
+    if (!parsed.success) {
+      const fields: Record<string, string> = {};
+      parsed.error.issues.forEach((issue) => {
+        fields[issue.path.join(".")] = issue.message;
+      });
+      throw new ValidationError("Invalid query parameters", fields);
+    }
+
+    const result = await qaService.findAll(parsed.data);
+    return paginatedResponse(result.data, {
+      ...result.meta,
+      pendingCount: result.meta.pendingCount,
+      answeredCount: result.meta.translatedCount,
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const parsed = qaCreateSingleSchema.safeParse(body);
+
+    if (!parsed.success) {
+      const fields: Record<string, string> = {};
+      parsed.error.issues.forEach((issue) => {
+        fields[issue.path.join(".")] = issue.message;
+      });
+      throw new ValidationError("Invalid input", fields);
+    }
+
+    const pair = await qaService.createSingle(
+      parsed.data.question,
+      parsed.data.answer
+    );
+    return createdResponse(pair);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsed = qaDeleteManySchema.safeParse(body);
+
+    if (!parsed.success) {
+      const fields: Record<string, string> = {};
+      parsed.error.issues.forEach((issue) => {
+        fields[issue.path.join(".")] = issue.message;
+      });
+      throw new ValidationError("Invalid filter", fields);
+    }
+
+    await qaService.deleteMany(parsed.data.filter);
+    return noContentResponse();
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
