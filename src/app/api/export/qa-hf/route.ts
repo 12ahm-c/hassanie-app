@@ -5,7 +5,7 @@ import { InvalidStateError } from "@/lib/errors/AppError";
 import { HuggingFaceService } from "@/lib/services/huggingface.service";
 import { NextRequest } from "next/server";
 
-const QA_HF_REPO = "ahmed200512/hassanie_claude-qa";
+const QA_HF_REPO = process.env.HUGGINGFACE_QA_REPO || "ahmed200512/hassanie_claude-qa";
 
 export async function POST(_request: NextRequest) {
   try {
