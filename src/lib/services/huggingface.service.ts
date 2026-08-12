@@ -334,6 +334,24 @@ export class HuggingFaceService {
             allRows.push(...rows);
           }
         }
+
+        const dataFolders = files.filter((f) => f.type === "directory" || f.path.endsWith("/"));
+        for (const folder of dataFolders) {
+          const folderPath = folder.path.replace(/\/$/, "");
+          const subTreeRes = await fetch(
+            `${HF_API_BASE}/datasets/${repo}/tree/main/${folderPath}`,
+            { headers: this.headers() }
+          );
+          if (subTreeRes.ok) {
+            const subFiles: { path: string }[] = await subTreeRes.json();
+            for (const subFile of subFiles) {
+              if (subFile.path.startsWith("data/") && subFile.path.endsWith(".parquet")) {
+                const rows = await this.downloadQaParquet(subFile.path);
+                allRows.push(...rows);
+              }
+            }
+          }
+        }
       }
 
       if (allRows.length === 0) return "";
